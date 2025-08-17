@@ -1,0 +1,44 @@
+# Matrix Message Archiver Configuration
+# Copy this to /home/matrix-ai/config/archiver/config.yaml and edit
+
+# Matrix connection settings
+matrix:
+  homeserver_url: "http://localhost:8008"
+  username: "@archiver:matrix.radx.dev"
+  password: "${MATRIX_PASSWORD}"  # Set in environment
+  device_name: "Supabase Matrix Archiver"
+
+# Supabase configuration
+supabase:
+  url: "${SUPABASE_URL}"  # Set in environment
+  service_role_key: "${SUPABASE_SERVICE_ROLE_KEY}"  # Set in environment
+  anon_key: "${SUPABASE_ANON_KEY}"  # Set in environment
+  jwt_secret: "${SUPABASE_JWT_SECRET}"  # Set in environment
+  db_url: "${SUPABASE_DB_URL}"  # Set in environment
+  
+  # Storage configuration
+  storage:
+    bucket: "matrix-media"
+    file_size_limit: "100MB"
+
+# Rooms to monitor for archiving
+rooms:
+  # Example room configurations
+  # - room_id: "!example:matrix.radx.dev"
+  #   enabled: true
+  #   backfill: true
+  # - room_id: "!whatsapp_bridge:matrix.radx.dev"
+  #   enabled: true
+  #   backfill: false
+
+# Processing settings
+processing:
+  max_file_size: "100MB"
+  batch_size: 50
+  sync_timeout: 30000
+  concurrent_uploads: 5
+  retry_attempts: 3
+  retry_delay: 5
+
+# Logging level
+log_level: "INFO"
