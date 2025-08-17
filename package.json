@@ -1,0 +1,28 @@
+{
+  "name": "matrix-ai-server",
+  "version": "1.0.0",
+  "description": "AI-enabled Matrix server with message summarization and chat capabilities",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "jest",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "models:download": "node scripts/download-models.js",
+    "ai:test": "node scripts/test-ai.js"
+  },
+  "keywords": [
+    "matrix",
+    "ai",
+    "chat",
+    "messaging",
+    "summarization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}

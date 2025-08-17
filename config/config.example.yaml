@@ -1,0 +1,58 @@
+# Matrix AI Server Configuration Example
+# Copy this file to config.yaml and update values
+
+# Matrix Server Configuration
+matrix:
+  server_name: "localhost"
+  port: 8008
+  registration_shared_secret: "your-secret-here"
+  macaroon_secret_key: "your-macaroon-secret"
+  
+# Database Configuration
+database:
+  type: "sqlite"
+  path: "homeserver.db"
+  # For PostgreSQL:
+  # type: "postgresql"
+  # host: "localhost"
+  # port: 5432
+  # database: "matrix"
+  # username: "matrix"
+  # password: "password"
+
+# AI Configuration
+ai:
+  provider: "openai"  # or "local", "ollama"
+  model: "gpt-3.5-turbo"
+  api_key: "your-openai-api-key"
+  max_tokens: 4000
+  temperature: 0.7
+  
+  # Local model configuration (if using local models)
+  local:
+    model_path: "./models/"
+    device: "cpu"  # or "cuda" for GPU
+
+# Logging
+logging:
+  level: "info"
+  file: "logs/matrix-ai.log"
+
+# Security
+security:
+  tls:
+    enabled: false
+    cert_path: "tls/cert.pem"
+    key_path: "tls/key.pem"
+
+# AI Features
+features:
+  summarization:
+    enabled: true
+    auto_summarize_threshold: 50  # messages
+  chat_history:
+    enabled: true
+    max_context_messages: 20
+  content_analysis:
+    enabled: true
+    sentiment_analysis: true
