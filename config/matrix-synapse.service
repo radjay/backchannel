@@ -1,0 +1,20 @@
+[Unit]
+Description=Synapse Matrix homeserver
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=matrix
+WorkingDirectory=/home/matrix-ai
+ExecStart=/opt/matrix/synapse-venv/bin/python -m synapse.app.homeserver --config-path=/home/matrix-ai/config/matrix-synapse/homeserver.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=3
+SyslogIdentifier=matrix-synapse
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
