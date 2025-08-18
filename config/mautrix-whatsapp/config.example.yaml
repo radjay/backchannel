@@ -1,0 +1,119 @@
+# mautrix-whatsapp Bridge Configuration
+# Copy this file to config.yaml and customize for your setup
+# This is a minimal example - see the full generated config for all options
+
+# Homeserver details
+homeserver:
+    # Public address that the homeserver is available at
+    address: http://localhost:8008
+    # Homeserver domain
+    domain: your-domain.com
+
+# Application service host/registration related details
+appservice:
+    # Address that the homeserver can use to connect to this appservice
+    address: http://localhost:29318
+    # Hostname and port where this appservice should listen
+    hostname: 0.0.0.0
+    port: 29318
+    
+    # Database config
+    database:
+        # Database type - postgres recommended for production
+        type: postgres
+        # Database connection URI
+        uri: postgresql://matrix:password@localhost/mautrix_whatsapp
+        # Maximum number of connections
+        max_open_conns: 5
+        max_idle_conns: 1
+
+    # Application service registration - auto-generated
+    id: whatsapp
+    bot_username: whatsappbot
+    bot_displayname: WhatsApp bridge bot
+    bot_avatar: mxc://maunium.net/NeXNQarUbrlYBiPCpprYsRqr
+    
+    as_token: "This value is generated when generating the registration"
+    hs_token: "This value is generated when generating the registration"
+
+# Bridge config
+bridge:
+    # Localpart template of MXIDs for WhatsApp users
+    username_template: "whatsapp_{{.}}"
+    # Displayname template for WhatsApp users
+    displayname_template: "{{if .PushName}}{{.PushName}}{{else if .BusinessName}}{{.BusinessName}}{{else}}{{.JID}}{{end}} (WA)"
+    
+    # Should the bridge create a space for each logged-in user and add bridged rooms to it?
+    personal_filtering_spaces: true
+    
+    # Whether or not created rooms should have federation enabled
+    federate_rooms: true
+    
+    # Settings for backfilling messages
+    history_sync:
+        max_initial_conversations: -1
+        request_full_sync: true
+        
+    # Media handling - IMPORTANT for archiver compatibility
+    direct_media:
+        enabled: false  # Set to false for proper archiving
+        
+    # Should incoming calls send a message to the Matrix room?
+    call_start_notices: true
+    
+    # Permissions for using the bridge
+    permissions:
+        # Domain or specific user permissions
+        "your-domain.com": "user"
+        "@admin:your-domain.com": "admin"
+
+# Python logging configuration
+logging:
+    version: 1
+    formatters:
+        colored:
+            (): mautrix.util.ColorFormatter
+            format: "[%(asctime)s] [%(levelname)s@%(name)s] %(message)s"
+        normal:
+            format: "[%(asctime)s] [%(levelname)s@%(name)s] %(message)s"
+    handlers:
+        file:
+            class: logging.handlers.RotatingFileHandler
+            formatter: normal
+            filename: ./logs/mautrix-whatsapp.log
+            maxBytes: 104857600
+            backupCount: 10
+        console:
+            class: logging.StreamHandler
+            formatter: colored
+    loggers:
+        mau:
+            level: DEBUG
+        aiohttp:
+            level: INFO
+    root:
+        level: DEBUG
+        handlers: [file, console]
+
+# Network-specific config options
+network:
+    os_name: Mautrix-WhatsApp bridge
+    browser_name: unknown
+    displayname_template: "{{or .BusinessName .PushName .Phone}} (WA)"
+    
+    # Should incoming calls send a message to the Matrix room?
+    call_start_notices: true
+    # Should WhatsApp status messages be bridged into a Matrix room?
+    enable_status_broadcast: true
+    # Should sending WhatsApp status messages be allowed?
+    disable_status_broadcast_send: true
+    
+    # Should the bridge automatically reconnect if it fails to connect on startup?
+    initial_auto_reconnect: true
+    
+# IMPORTANT NOTES:
+# 1. Generate registration file: python -m mautrix_whatsapp -g
+# 2. Add registration.yaml to your homeserver config
+# 3. Create separate database for bridge to avoid conflicts
+# 4. Set direct_media.enabled: false for archiver compatibility
+# 5. Invite bridge bot to rooms you want to monitor

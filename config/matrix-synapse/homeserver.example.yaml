@@ -1,0 +1,91 @@
+# Matrix Synapse Homeserver Configuration
+# Copy this file to homeserver.yaml and customize for your setup
+# This is a minimal example - generate full config with synapse homeserver
+
+server_name: "your-domain.com"
+public_baseurl: "https://matrix.your-domain.com/"
+pid_file: /data/homeserver.pid
+
+# Listeners for client and federation
+listeners:
+  - port: 8008
+    type: http
+    tls: false
+    x_forwarded: true
+    resources:
+      - names: [client, federation]
+        compress: false
+
+# Database configuration
+database:
+  name: psycopg2
+  args:
+    user: matrix
+    password: your_db_password
+    database: synapse
+    host: localhost
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+
+# Logging
+log_config: "/config/matrix-synapse/log.config"
+
+# Media store
+media_store_path: /data/media_store
+max_upload_size: 50M
+max_image_pixels: 32M
+
+# Registration
+enable_registration: false
+enable_registration_without_verification: false
+
+# Signing key (generate with synapse)
+signing_key_path: "/config/matrix-synapse/signing.key"
+
+# Trusted key servers for federation
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+# App services (add your bridge registrations here)
+app_service_config_files:
+  - "/config/mautrix-whatsapp/registration.yaml"
+
+# Rate limiting
+rc_message:
+  per_second: 10
+  burst_count: 50
+
+rc_registration:
+  per_second: 0.17
+  burst_count: 3
+
+rc_login:
+  address:
+    per_second: 0.17
+    burst_count: 3
+  account:
+    per_second: 0.17
+    burst_count: 3
+  failed_attempts:
+    per_second: 0.17
+    burst_count: 3
+
+# Federation
+federation_domain_whitelist: []
+
+# Metrics (optional)
+enable_metrics: false
+
+# Email configuration (optional but recommended)
+email:
+  smtp_host: localhost
+  smtp_port: 25
+  notif_from: "Matrix <noreply@your-domain.com>"
+
+# IMPORTANT NOTES:
+# 1. Generate signing key: python -m synapse.app.homeserver --generate-keys
+# 2. Create database: createdb -O matrix synapse
+# 3. Run database migrations: synapse_homeserver --config-path homeserver.yaml --generate-config
+# 4. Configure reverse proxy (nginx/apache) for HTTPS
+# 5. Set up .well-known delegation for federation
