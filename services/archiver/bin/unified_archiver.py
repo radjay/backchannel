@@ -109,14 +109,86 @@ class UnifiedArchiver:
             logger.error(f"Matrix login error: {e}")
             return False
     
+    async def resolve_room_name(self, room_id: str) -> tuple[str, str]:
+        """Returns (room_name, display_name) from Matrix room state."""
+        try:
+            async with self.session.get(
+                f"{self.matrix_homeserver}/_matrix/client/r0/rooms/{room_id}/state/m.room.name",
+                params={"access_token": self.matrix_token}
+            ) as resp:
+                room_name = ""
+                if resp.status == 200:
+                    data = await resp.json()
+                    room_name = data.get("name", "")
+                    
+            # Get canonical alias as fallback display name
+            async with self.session.get(
+                f"{self.matrix_homeserver}/_matrix/client/r0/rooms/{room_id}/state/m.room.canonical_alias",
+                params={"access_token": self.matrix_token}
+            ) as resp:
+                display_name = room_name  # Use room name as default
+                if resp.status == 200:
+                    data = await resp.json()
+                    alias = data.get("alias", "")
+                    if alias and not room_name:
+                        display_name = alias
+                        
+            return (room_name or "", display_name or room_id)
+            
+        except Exception as e:
+            logger.warning(f"Failed to resolve room name for {room_id}: {e}")
+            return ("", room_id)
+    
+    async def resolve_user_display_name(self, user_id: str, room_id: str) -> str:
+        """Returns user's display name in the context of a room."""
+        try:
+            # Try to get room-specific display name first
+            async with self.session.get(
+                f"{self.matrix_homeserver}/_matrix/client/r0/rooms/{room_id}/state/m.room.member/{user_id}",
+                params={"access_token": self.matrix_token}
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    display_name = data.get("displayname", "")
+                    if display_name:
+                        return display_name
+                        
+            # Fallback to global profile
+            async with self.session.get(
+                f"{self.matrix_homeserver}/_matrix/client/r0/profile/{user_id}/displayname",
+                params={"access_token": self.matrix_token}
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    display_name = data.get("displayname", "")
+                    if display_name:
+                        return display_name
+                        
+            # Final fallback to user ID
+            return user_id
+            
+        except Exception as e:
+            logger.warning(f"Failed to resolve display name for {user_id}: {e}")
+            return user_id
+
     async def archive_message(self, event_data):
         """Archive a message to Supabase."""
         try:
-            # Prepare message data
+            room_id = event_data.get("room_id")
+            sender = event_data.get("sender")
+            
+            # Resolve human-readable names
+            room_name, room_display_name = await self.resolve_room_name(room_id)
+            sender_display_name = await self.resolve_user_display_name(sender, room_id)
+            
+            # Prepare message data with human-readable names
             message_data = {
                 "event_id": event_data.get("event_id"),
-                "room_id": event_data.get("room_id"),
-                "sender": event_data.get("sender"),
+                "room_id": room_id,
+                "room_name": room_name,
+                "room_display_name": room_display_name,
+                "sender": sender,
+                "sender_display_name": sender_display_name,
                 "timestamp": event_data.get("origin_server_ts"),
                 "message_type": event_data.get("type"),
                 "content": event_data.get("content", {})
