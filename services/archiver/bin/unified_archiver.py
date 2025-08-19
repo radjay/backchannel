@@ -11,6 +11,7 @@ from pathlib import Path
 # Use basic imports that work
 import aiohttp
 import yaml
+import os
 
 # Set up basic logging
 logging.basicConfig(
@@ -19,8 +20,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class SimpleArchiver:
-    """Simple Matrix to Supabase archiver."""
+class UnifiedArchiver:
+    """Unified Matrix to Supabase archiver with dynamic room management."""
     
     def __init__(self):
         self.matrix_token = None
@@ -28,6 +29,9 @@ class SimpleArchiver:
         self.supabase_url = None
         self.supabase_key = None
         self.session = None
+        self.managed_rooms = set()  # Rooms we're currently monitoring
+        self.room_refresh_interval = 300  # 5 minutes
+        self.last_room_refresh = 0
         
     async def initialize(self):
         """Initialize the archiver."""
@@ -40,7 +44,6 @@ class SimpleArchiver:
             logger.info("Config loaded successfully")
             
             # Get environment variables
-            import os
             self.matrix_password = os.getenv('MATRIX_PASSWORD', 'HnvtFkgDZjF4')
             self.supabase_url = os.getenv('SUPABASE_URL', '')
             self.supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -66,8 +69,11 @@ class SimpleArchiver:
         success = await self.matrix_login()
         if not success:
             return False
+        
+        # Initialize room management
+        await self.refresh_room_management()
             
-        logger.info("Archiver initialized successfully")
+        logger.info("Unified archiver initialized successfully")
         return True
     
     async def matrix_login(self):
@@ -124,7 +130,7 @@ class SimpleArchiver:
             }
             
             async with self.session.post(
-                f"{self.supabase_url}/rest/v1/archived_messages",
+                f"{self.supabase_url}/rest/v1/messages",
                 json=message_data,
                 headers=headers
             ) as resp:
@@ -309,7 +315,7 @@ class SimpleArchiver:
             
             # Check if media metadata already exists first
             async with self.session.get(
-                f"{self.supabase_url}/rest/v1/archived_media?event_id=eq.{event_data.get('event_id')}",
+                f"{self.supabase_url}/rest/v1/media?event_id=eq.{event_data.get('event_id')}",
                 headers=headers
             ) as check_resp:
                 if check_resp.status == 200:
@@ -319,7 +325,7 @@ class SimpleArchiver:
                         return True
             
             async with self.session.post(
-                f"{self.supabase_url}/rest/v1/archived_media",
+                f"{self.supabase_url}/rest/v1/media",
                 json=media_data,
                 headers=headers
             ) as resp:
@@ -358,12 +364,104 @@ class SimpleArchiver:
             logger.error(f"Error accepting invitation for {room_id}: {e}")
             return False
     
+    async def refresh_room_management(self):
+        """Refresh room management - get monitored rooms from database."""
+        try:
+            import time
+            current_time = time.time()
+            
+            # Only refresh if enough time has passed
+            if current_time - self.last_room_refresh < self.room_refresh_interval:
+                return
+            
+            headers = {
+                "apikey": self.supabase_key,
+                "Authorization": f"Bearer {self.supabase_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Get enabled rooms from database
+            async with self.session.get(
+                f"{self.supabase_url}/rest/v1/monitored_rooms?enabled=eq.true",
+                headers=headers
+            ) as resp:
+                if resp.status == 200:
+                    monitored_rooms = await resp.json()
+                    new_room_set = {room['room_id'] for room in monitored_rooms}
+                    
+                    # Join any new rooms
+                    new_rooms = new_room_set - self.managed_rooms
+                    for room_id in new_rooms:
+                        logger.info(f"🔗 Attempting to join new monitored room: {room_id}")
+                        await self.join_room_if_possible(room_id)
+                    
+                    # Leave rooms that are no longer monitored
+                    removed_rooms = self.managed_rooms - new_room_set
+                    for room_id in removed_rooms:
+                        logger.info(f"🚪 Leaving no-longer-monitored room: {room_id}")
+                        await self.leave_room(room_id)
+                    
+                    self.managed_rooms = new_room_set
+                    self.last_room_refresh = current_time
+                    
+                    logger.info(f"📊 Room management refreshed: {len(self.managed_rooms)} rooms monitored")
+                else:
+                    logger.error(f"Failed to get monitored rooms: {resp.status}")
+                    
+        except Exception as e:
+            logger.error(f"Error refreshing room management: {e}")
+    
+    async def join_room_if_possible(self, room_id):
+        """Try to join a room if we're not already in it."""
+        try:
+            async with self.session.post(
+                f"{self.matrix_homeserver}/_matrix/client/r0/rooms/{room_id}/join",
+                params={"access_token": self.matrix_token},
+                json={}
+            ) as resp:
+                if resp.status in [200, 201]:
+                    logger.info(f"✅ Successfully joined room: {room_id}")
+                    return True
+                elif resp.status == 403:
+                    # We're not invited - this is expected for private rooms
+                    logger.info(f"📝 Room {room_id} requires invitation (private room)")
+                    logger.info(f"   💡 Tip: Use 'python3 auto_invite_archiver.py {room_id}' to invite archiver")
+                    return False
+                else:
+                    error = await resp.text()
+                    logger.warning(f"Failed to join room {room_id}: {resp.status} - {error}")
+                    return False
+        except Exception as e:
+            logger.error(f"Error joining room {room_id}: {e}")
+            return False
+    
+    async def leave_room(self, room_id):
+        """Leave a room."""
+        try:
+            async with self.session.post(
+                f"{self.matrix_homeserver}/_matrix/client/r0/rooms/{room_id}/leave",
+                params={"access_token": self.matrix_token},
+                json={}
+            ) as resp:
+                if resp.status in [200, 201]:
+                    logger.info(f"✅ Successfully left room: {room_id}")
+                    return True
+                else:
+                    error = await resp.text()
+                    logger.warning(f"Failed to leave room {room_id}: {resp.status} - {error}")
+                    return False
+        except Exception as e:
+            logger.error(f"Error leaving room {room_id}: {e}")
+            return False
+    
     async def sync_loop(self):
         """Main sync loop to get Matrix events."""
         next_batch = ""
         
         while True:
             try:
+                # Refresh room management periodically
+                await self.refresh_room_management()
                 # Sync with Matrix
                 params = {
                     "access_token": self.matrix_token,
@@ -387,11 +485,15 @@ class SimpleArchiver:
                                 logger.info(f"Auto-accepting invitation to room: {room_id}")
                                 await self.accept_room_invitation(room_id)
                         
-                        # Process room events
+                        # Process room events (only for monitored rooms)
                         rooms = sync_data.get("rooms", {}).get("join", {})
                         logger.info(f"Processing sync response with {len(rooms)} rooms")
                         
                         for room_id, room_data in rooms.items():
+                            # Only process events from monitored rooms
+                            if room_id not in self.managed_rooms:
+                                logger.debug(f"Skipping unmonitored room: {room_id}")
+                                continue
                             timeline = room_data.get("timeline", {})
                             events = timeline.get("events", [])
                             logger.info(f"Room {room_id}: {len(events)} events")
@@ -415,11 +517,11 @@ class SimpleArchiver:
                 await asyncio.sleep(10)  # Wait before retry
     
     async def run(self):
-        """Run the archiver."""
-        logger.info("Starting Matrix Archiver")
+        """Run the unified archiver."""
+        logger.info("Starting Unified Matrix Archiver with Dynamic Room Management")
         
         if not await self.initialize():
-            logger.error("Failed to initialize archiver")
+            logger.error("Failed to initialize unified archiver")
             return
             
         try:
@@ -432,7 +534,7 @@ class SimpleArchiver:
 
 async def main():
     """Main entry point."""
-    archiver = SimpleArchiver()
+    archiver = UnifiedArchiver()
     await archiver.run()
 
 if __name__ == "__main__":
