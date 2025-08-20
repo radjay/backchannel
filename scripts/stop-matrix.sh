@@ -9,7 +9,7 @@ echo
 # Stop services in reverse dependency order (archiver -> bridge -> synapse)
 
 echo "1. Stopping Matrix Archiver..."
-pkill -f "simple_archiver.py" 2>/dev/null || echo "   Archiver not running"
+pkill -f "unified_archiver.py" 2>/dev/null || echo "   Archiver not running"
 
 echo "2. Stopping WhatsApp Bridge..."
 pkill -f "mautrix-whatsapp" 2>/dev/null || echo "   Bridge not running"
@@ -25,5 +25,5 @@ echo
 echo "📊 Final Status:"
 echo "   Synapse: $(sudo systemctl is-active matrix-synapse 2>/dev/null || echo 'inactive')"
 echo "   Bridge: $(pgrep -f mautrix-whatsapp >/dev/null && echo 'running' || echo 'stopped')"
-echo "   Archiver: $(pgrep -f simple_archiver.py >/dev/null && echo 'running' || echo 'stopped')"
+echo "   Archiver: $(pgrep -f unified_archiver.py >/dev/null && echo 'running' || echo 'stopped')"
 echo

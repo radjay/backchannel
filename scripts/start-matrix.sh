@@ -20,30 +20,42 @@ fi
 echo "   ✅ Synapse running"
 
 echo "2. Starting WhatsApp Bridge..."
-cd /home/matrix/whatsapp
-nohup ./mautrix-whatsapp -c /home/matrix-ai/config/mautrix-whatsapp/config.yaml > /home/matrix-ai/logs/bridge.log 2>&1 &
-BRIDGE_PID=$!
-sleep 5
+# Check if bridge is already running
+if pgrep -f mautrix-whatsapp >/dev/null; then
+    BRIDGE_PID=$(pgrep -f mautrix-whatsapp | head -1)
+    echo "   ℹ️  WhatsApp Bridge already running (PID: $BRIDGE_PID)"
+else
+    cd /home/matrix/whatsapp
+    nohup ./mautrix-whatsapp -c /home/matrix-ai/config/mautrix-whatsapp/config.yaml > /home/matrix-ai/logs/bridge.log 2>&1 &
+    BRIDGE_PID=$!
+    sleep 5
 
-# Check if bridge is still running
-if ! kill -0 $BRIDGE_PID 2>/dev/null; then
-    echo "❌ Failed to start WhatsApp Bridge"
-    exit 1
+    # Check if bridge is still running
+    if ! kill -0 $BRIDGE_PID 2>/dev/null; then
+        echo "❌ Failed to start WhatsApp Bridge"
+        exit 1
+    fi
+    echo "   ✅ WhatsApp Bridge running (PID: $BRIDGE_PID)"
 fi
-echo "   ✅ WhatsApp Bridge running (PID: $BRIDGE_PID)"
 
 echo "3. Starting Matrix Archiver..."
-cd /home/matrix-ai/services/archiver
-nohup ./start_archiver.sh > /home/matrix-ai/logs/archiver.log 2>&1 &
-ARCHIVER_PID=$!
-sleep 3
+# Check if archiver is already running
+if pgrep -f unified_archiver.py >/dev/null; then
+    ARCHIVER_PID=$(pgrep -f unified_archiver.py | head -1)
+    echo "   ℹ️  Matrix Archiver already running (PID: $ARCHIVER_PID)"
+else
+    cd /home/matrix-ai/services/archiver
+    nohup ./scripts/start_archiver.sh > /home/matrix-ai/logs/archiver.log 2>&1 &
+    ARCHIVER_PID=$!
+    sleep 3
 
-# Check if archiver is still running
-if ! kill -0 $ARCHIVER_PID 2>/dev/null; then
-    echo "❌ Failed to start Matrix Archiver"
-    exit 1
+    # Check if archiver is still running
+    if ! kill -0 $ARCHIVER_PID 2>/dev/null; then
+        echo "❌ Failed to start Matrix Archiver"
+        exit 1
+    fi
+    echo "   ✅ Matrix Archiver running (PID: $ARCHIVER_PID)"
 fi
-echo "   ✅ Matrix Archiver running (PID: $ARCHIVER_PID)"
 
 echo
 echo "🎉 All Matrix services started successfully!"
@@ -53,7 +65,7 @@ echo
 echo "📊 Service Status:"
 echo "   Synapse: $(sudo systemctl is-active matrix-synapse)"
 echo "   Bridge: $(pgrep -f mautrix-whatsapp >/dev/null && echo 'running' || echo 'stopped')"
-echo "   Archiver: $(pgrep -f simple_archiver.py >/dev/null && echo 'running' || echo 'stopped')"
+echo "   Archiver: $(pgrep -f unified_archiver.py >/dev/null && echo 'running' || echo 'stopped')"
 echo
 
 # Show service URLs

@@ -28,7 +28,7 @@ fi
 # Check Archiver
 echo
 echo "📚 Matrix Archiver:"
-ARCHIVER_PID=$(pgrep -f simple_archiver.py 2>/dev/null || echo "")
+ARCHIVER_PID=$(pgrep -f unified_archiver.py 2>/dev/null || echo "")
 if [ -n "$ARCHIVER_PID" ]; then
     echo "   Status: ✅ Running (PID: $ARCHIVER_PID)"
     echo "   Memory: $(ps -p $ARCHIVER_PID -o rss= | awk '{print $1/1024 " MB"}')"

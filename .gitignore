@@ -89,3 +89,4 @@ embeddings/
 config.yaml
 secrets.yaml
 registration.yaml
+config/archiver/env
