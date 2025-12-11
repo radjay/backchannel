@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import MessagesList from '../components/MessagesList';
+import RoomInfoModal from '../components/RoomInfoModal';
 
 type Organization = { id: number; name: string };
 type Room = { room_id: string; room_name?: string | null; organization_id?: number | null };
@@ -12,6 +14,16 @@ type Message = {
   timestamp: number;
   content: { body?: string } | null;
 };
+
+const roomLabel = (room: Room) => {
+  if (room.room_name && room.room_name.trim()) return room.room_name;
+  const core = room.room_id.startsWith('!') ? room.room_id.slice(1) : room.room_id;
+  const shortId = core.split(':')[0];
+  return `Room ${shortId.slice(-6)}`;
+};
+
+export const revalidate = 0; // Disable caching for this page
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 export default async function Page({ searchParams }: { searchParams?: { org?: string; room?: string } }) {
   const orgResult = await supabase.from('organizations').select('id,name').order('name', { ascending: true });
@@ -34,14 +46,15 @@ export default async function Page({ searchParams }: { searchParams?: { org?: st
         .select('event_id,room_id,sender,sender_display_name,room_display_name,timestamp,content')
         .eq('room_id', selectedRoomId)
         .order('timestamp', { ascending: false })
-        .limit(50)
+        .limit(100)
     : { data: [] as Message[] };
 
-  const messages: Message[] = (messagesResult as any).data ?? [];
+  // Reverse to display oldest first (chronological order)
+  const messages: Message[] = ((messagesResult as any).data ?? []).reverse();
 
   return (
     <main>
-      <h1>Matrix Archive</h1>
+      <h1>matrixai</h1>
       <div className="columns">
         <section className="column">
           <h3>Organizations</h3>
@@ -65,7 +78,7 @@ export default async function Page({ searchParams }: { searchParams?: { org?: st
                     query: { org: selectedOrgId ?? '', room: room.room_id },
                   }}
                 >
-                  {room.room_name || room.room_id}
+                  {roomLabel(room)}
                 </Link>
               </li>
             ))}
@@ -73,19 +86,22 @@ export default async function Page({ searchParams }: { searchParams?: { org?: st
           </ul>
         </section>
         <section className="column">
-          <h3>Messages</h3>
-          <div className="messages">
-            {messages.map((msg) => (
-              <div key={msg.event_id} className="message">
-                <div className="meta">
-                  <span>{msg.sender_display_name || msg.sender}</span>
-                  <span>{msg.room_display_name || msg.room_id}</span>
-                  <span>{new Date(msg.timestamp).toLocaleString()}</span>
-                </div>
-                <div className="body">{msg.content?.body ?? '[no body]'}</div>
-              </div>
-            ))}
-            {!messages.length && <div>No messages</div>}
+          <div className="messages-header">
+            <h3>Messages</h3>
+            {selectedRoomId && (
+              <RoomInfoModal
+                roomInfo={{
+                  room_id: selectedRoomId,
+                  room_name: rooms.find((r) => r.room_id === selectedRoomId)?.room_name ?? null,
+                  room_display_name: messages[0]?.room_display_name ?? null,
+                  message_count: messages.length,
+                  latest_message: messages.length > 0 ? messages[messages.length - 1]?.event_id : null,
+                }}
+              />
+            )}
+          </div>
+          <div className="messages-wrapper">
+            <MessagesList messages={messages} />
           </div>
         </section>
       </div>
