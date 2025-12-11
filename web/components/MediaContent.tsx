@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ImageIcon, Video, Music, FileIcon, Download } from "lucide-react";
+import { ImageIcon, Video, Music, FileIcon, Download, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 
 type MediaInfo = {
   url?: string;
@@ -15,6 +15,16 @@ type MediaInfo = {
     h?: number;
     duration?: number;
   };
+};
+
+type MediaAnalysis = {
+  description?: string;
+  transcription?: string;
+  summary?: string;
+  elements?: string[];
+  actions?: string[];
+  language?: string;
+  media_type?: string;
 };
 
 function formatFileSize(bytes?: number): string {
@@ -37,7 +47,104 @@ function getMediaUrl(mxcUrl?: string): string {
   return `/api/media?mxc=${encodeURIComponent(mxcUrl)}`;
 }
 
-export default function MediaContent({ content }: { content: MediaInfo }) {
+function AnalysisPanel({ eventId, mediaType }: { eventId: string; mediaType: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [analysis, setAnalysis] = useState<MediaAnalysis | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
+
+  const fetchAnalysis = async () => {
+    if (fetched) {
+      setIsOpen(!isOpen);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const resp = await fetch(`/api/analysis?event_id=${encodeURIComponent(eventId)}`);
+      const data = await resp.json();
+      setAnalysis(data.analysis);
+      setFetched(true);
+      setIsOpen(true);
+    } catch (err) {
+      console.error("Failed to fetch analysis:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="analysis-panel">
+      <button
+        className={`analysis-toggle ${isOpen ? 'open' : ''} ${analysis ? 'has-analysis' : ''}`}
+        onClick={fetchAnalysis}
+        disabled={loading}
+      >
+        <Sparkles size={14} />
+        <span>{loading ? 'Loading...' : 'AI Analysis'}</span>
+        {fetched && (isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+      </button>
+
+      {isOpen && fetched && (
+        <div className="analysis-content">
+          {!analysis ? (
+            <p className="analysis-empty">No analysis available</p>
+          ) : (
+            <>
+              {analysis.summary && (
+                <div className="analysis-section">
+                  <span className="analysis-label">Summary</span>
+                  <p>{analysis.summary}</p>
+                </div>
+              )}
+
+              {analysis.description && mediaType !== 'm.audio' && (
+                <div className="analysis-section">
+                  <span className="analysis-label">Description</span>
+                  <p>{analysis.description}</p>
+                </div>
+              )}
+
+              {analysis.transcription && (
+                <div className="analysis-section">
+                  <span className="analysis-label">Transcription</span>
+                  <p className="analysis-transcription">"{analysis.transcription}"</p>
+                  {analysis.language && (
+                    <span className="analysis-language">Language: {analysis.language}</span>
+                  )}
+                </div>
+              )}
+
+              {analysis.elements && analysis.elements.length > 0 && (
+                <div className="analysis-section">
+                  <span className="analysis-label">Elements</span>
+                  <div className="analysis-tags">
+                    {analysis.elements.map((el, i) => (
+                      <span key={i} className="analysis-tag">{el}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {analysis.actions && analysis.actions.length > 0 && (
+                <div className="analysis-section">
+                  <span className="analysis-label">Actions</span>
+                  <div className="analysis-tags">
+                    {analysis.actions.map((action, i) => (
+                      <span key={i} className="analysis-tag">{action}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MediaContent({ content, eventId }: { content: MediaInfo; eventId?: string }) {
   const [imageError, setImageError] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -46,6 +153,8 @@ export default function MediaContent({ content }: { content: MediaInfo }) {
   const filename = content.filename || content.body || "file";
   const mimetype = content.info?.mimetype || "";
   const fileSize = formatFileSize(content.info?.size);
+
+  const showAnalysis = eventId && ['m.image', 'm.video', 'm.audio'].includes(msgtype || '');
 
   if (!content.url) {
     return <span className="media-placeholder">[Media unavailable]</span>;
@@ -66,20 +175,23 @@ export default function MediaContent({ content }: { content: MediaInfo }) {
     }
 
     return (
-      <div className="media-image-container">
-        <img
-          src={mediaUrl}
-          alt={filename}
-          className={`media-image ${expanded ? "expanded" : ""}`}
-          onClick={() => setExpanded(!expanded)}
-          onError={() => setImageError(true)}
-          loading="lazy"
-        />
-        {content.info?.w && content.info?.h && !expanded && (
-          <span className="media-info">
-            {content.info.w}x{content.info.h} {fileSize && `• ${fileSize}`}
-          </span>
-        )}
+      <div className="media-wrapper">
+        <div className="media-image-container">
+          <img
+            src={mediaUrl}
+            alt={filename}
+            className={`media-image ${expanded ? "expanded" : ""}`}
+            onClick={() => setExpanded(!expanded)}
+            onError={() => setImageError(true)}
+            loading="lazy"
+          />
+          {content.info?.w && content.info?.h && !expanded && (
+            <span className="media-info">
+              {content.info.w}x{content.info.h} {fileSize && `• ${fileSize}`}
+            </span>
+          )}
+        </div>
+        {showAnalysis && <AnalysisPanel eventId={eventId} mediaType={msgtype} />}
       </div>
     );
   }
@@ -87,28 +199,31 @@ export default function MediaContent({ content }: { content: MediaInfo }) {
   // Video
   if (msgtype === "m.video") {
     return (
-      <div className="media-video-container">
-        <video
-          src={mediaUrl}
-          controls
-          className="media-video"
-          preload="metadata"
-        >
-          <source src={mediaUrl} type={mimetype} />
-          Your browser does not support video playback.
-        </video>
-        <div className="media-info">
-          <Video size={14} />
-          {content.info?.w && content.info?.h && (
-            <span>
-              {content.info.w}x{content.info.h}
-            </span>
-          )}
-          {content.info?.duration && (
-            <span>{formatDuration(content.info.duration)}</span>
-          )}
-          {fileSize && <span>{fileSize}</span>}
+      <div className="media-wrapper">
+        <div className="media-video-container">
+          <video
+            src={mediaUrl}
+            controls
+            className="media-video"
+            preload="none"
+          >
+            <source src={mediaUrl} type={mimetype} />
+            Your browser does not support video playback.
+          </video>
+          <div className="media-info">
+            <Video size={14} />
+            {content.info?.w && content.info?.h && (
+              <span>
+                {content.info.w}x{content.info.h}
+              </span>
+            )}
+            {content.info?.duration && (
+              <span>{formatDuration(content.info.duration)}</span>
+            )}
+            {fileSize && <span>{fileSize}</span>}
+          </div>
         </div>
+        {showAnalysis && <AnalysisPanel eventId={eventId} mediaType={msgtype} />}
       </div>
     );
   }
@@ -116,18 +231,21 @@ export default function MediaContent({ content }: { content: MediaInfo }) {
   // Audio
   if (msgtype === "m.audio") {
     return (
-      <div className="media-audio-container">
-        <audio src={mediaUrl} controls className="media-audio" preload="metadata">
-          <source src={mediaUrl} type={mimetype} />
-          Your browser does not support audio playback.
-        </audio>
-        <div className="media-info">
-          <Music size={14} />
-          {content.info?.duration && (
-            <span>{formatDuration(content.info.duration)}</span>
-          )}
-          {fileSize && <span>{fileSize}</span>}
+      <div className="media-wrapper">
+        <div className="media-audio-container">
+          <audio src={mediaUrl} controls className="media-audio" preload="none">
+            <source src={mediaUrl} type={mimetype} />
+            Your browser does not support audio playback.
+          </audio>
+          <div className="media-info">
+            <Music size={14} />
+            {content.info?.duration && (
+              <span>{formatDuration(content.info.duration)}</span>
+            )}
+            {fileSize && <span>{fileSize}</span>}
+          </div>
         </div>
+        {showAnalysis && <AnalysisPanel eventId={eventId} mediaType={msgtype} />}
       </div>
     );
   }

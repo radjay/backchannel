@@ -11,6 +11,7 @@ import {
   AnalysisProvider,
   AnalysisResult,
   MediaType,
+  MediaAnalysisResponse,
   getProviderForMediaType,
 } from './providers/index.js';
 
@@ -298,21 +299,67 @@ class Analyzer {
     return prompts.join('\n\n');
   }
 
+  private parseJsonResponse(content: string): MediaAnalysisResponse | null {
+    try {
+      // Try to extract JSON from the response (handle potential markdown code blocks)
+      let jsonStr = content.trim();
+
+      // Remove markdown code blocks if present
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.slice(7);
+      } else if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.slice(3);
+      }
+      if (jsonStr.endsWith('```')) {
+        jsonStr = jsonStr.slice(0, -3);
+      }
+      jsonStr = jsonStr.trim();
+
+      return JSON.parse(jsonStr) as MediaAnalysisResponse;
+    } catch (err) {
+      console.warn('Failed to parse JSON response, storing as raw text:', err);
+      return null;
+    }
+  }
+
   private async storeResult(job: AnalysisJob, result: AnalysisResult, providerName: string): Promise<void> {
     const analysisType = job.media_type === 'audio' ? 'transcription' : 'description';
 
+    // Try to parse as JSON
+    const parsed = this.parseJsonResponse(result.content);
+
+    // Determine the primary content field
+    // For audio: transcription is primary, for image/video: description is primary
+    const primaryContent = parsed
+      ? (job.media_type === 'audio' ? parsed.transcription : parsed.description) ?? parsed.description
+      : result.content;
+
+    const record: Record<string, unknown> = {
+      message_id: job.message_id,
+      event_id: job.event_id,
+      media_type: job.media_type,
+      analysis_type: analysisType,
+      content: primaryContent,
+      provider: providerName,
+      model_used: result.modelUsed,
+      tokens_used: result.tokensUsed,
+      processing_time_ms: result.processingTimeMs,
+    };
+
+    // Add structured fields if JSON was parsed successfully
+    if (parsed) {
+      record.description = parsed.description;
+      record.transcription = parsed.transcription ?? null;
+      record.summary = parsed.summary;
+      record.elements = parsed.elements ?? [];
+      record.actions = parsed.actions ?? null;
+      record.language = parsed.language ?? null;
+      record.notes = parsed.notes ?? null;
+      record.raw_response = parsed;
+    }
+
     const { error } = await this.supabase.from('media_analysis').upsert(
-      {
-        message_id: job.message_id,
-        event_id: job.event_id,
-        media_type: job.media_type,
-        analysis_type: analysisType,
-        content: result.content,
-        provider: providerName,
-        model_used: result.modelUsed,
-        tokens_used: result.tokensUsed,
-        processing_time_ms: result.processingTimeMs,
-      },
+      record,
       { onConflict: 'event_id,analysis_type' }
     );
 
@@ -329,20 +376,26 @@ class Analyzer {
     const newAttempts = job.attempts + 1;
     const newStatus = newAttempts >= config.maxRetries ? 'failed' : 'pending';
 
+    // Calculate exponential backoff: base * 2^(attempt-1)
+    // e.g., 5s, 10s, 20s, 40s, 80s for attempts 1-5
+    const backoffMs = config.retryBackoffBaseMs * Math.pow(2, newAttempts - 1);
+    const retryAfter = new Date(Date.now() + backoffMs).toISOString();
+
     await this.supabase
       .from('analysis_jobs')
       .update({
         status: newStatus,
         attempts: newAttempts,
         last_error: errorMessage,
-        started_at: null, // Reset for retry
+        started_at: null,
+        retry_after: newStatus === 'pending' ? retryAfter : null,
       })
       .eq('id', job.id);
 
     if (newStatus === 'failed') {
       console.warn(`Job ${job.id} permanently failed after ${newAttempts} attempts`);
     } else {
-      console.info(`Job ${job.id} will retry (attempt ${newAttempts}/${config.maxRetries})`);
+      console.info(`Job ${job.id} will retry in ${backoffMs / 1000}s (attempt ${newAttempts}/${config.maxRetries})`);
     }
   }
 

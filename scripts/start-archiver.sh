@@ -13,9 +13,13 @@ if pgrep -f "services/archiver-js/dist/index.js" >/dev/null; then
 fi
 
 echo "🚀 Building archiver..."
-npm run archiver:build --prefix /home/matrix-ai > /dev/null
+npm run build --prefix /home/matrix-ai/services/archiver-js > /dev/null
 
 echo "🚀 Starting archiver..."
+ENV_FILE=/home/matrix-ai/.env
+if [ -f "$ENV_FILE" ]; then
+  export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
 nohup node /home/matrix-ai/services/archiver-js/dist/index.js > /home/matrix-ai/logs/archiver.log 2>&1 &
 PID=$!
 sleep 3

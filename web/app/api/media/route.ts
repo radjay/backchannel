@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 const MATRIX_HOMESERVER_URL = process.env.MATRIX_HOMESERVER_URL || 'http://localhost:8008';
 const MATRIX_USER = process.env.MATRIX_USER || '@archiver:matrix.radx.dev';
 const MATRIX_PASSWORD = process.env.MATRIX_PASSWORD;
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
 
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
@@ -51,6 +57,25 @@ function parseMxcUrl(mxcUrl: string): { server: string; mediaId: string } | null
   return { server, mediaId };
 }
 
+async function getSupabaseMediaUrl(mxcUrl: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('media')
+      .select('public_url')
+      .eq('matrix_url', mxcUrl)
+      .single();
+
+    if (error || !data?.public_url) {
+      return null;
+    }
+
+    return data.public_url;
+  } catch (err) {
+    console.error('Error looking up media in Supabase:', err);
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const mxcUrl = request.nextUrl.searchParams.get('mxc');
 
@@ -58,6 +83,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing mxc parameter' }, { status: 400 });
   }
 
+  // First, check if we have this media in Supabase storage
+  const supabaseUrl = await getSupabaseMediaUrl(mxcUrl);
+  if (supabaseUrl) {
+    // Redirect to the Supabase public URL
+    return NextResponse.redirect(supabaseUrl);
+  }
+
+  // Fallback to Matrix download
   const parts = parseMxcUrl(mxcUrl);
   if (!parts) {
     return NextResponse.json({ error: 'Invalid mxc URL' }, { status: 400 });

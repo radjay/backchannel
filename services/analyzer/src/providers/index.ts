@@ -2,7 +2,7 @@
  * Provider factory and exports
  */
 
-import { AnalysisProvider, MediaType } from './types.js';
+import { AnalysisProvider, MediaType, MediaAnalysisResponse } from './types.js';
 import { GeminiProvider } from './gemini.js';
 
 export * from './types.js';

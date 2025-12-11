@@ -55,3 +55,26 @@ export interface ComposedPrompt {
   mediaType: string;
   organization?: string;
 }
+
+/**
+ * Structured JSON response from AI analysis
+ * Shared structure across all media types
+ */
+export interface MediaAnalysisResponse {
+  // Main content - always present
+  description: string;              // Visual description (image/video) or content summary (audio)
+
+  // Transcription - for audio and video with speech
+  transcription?: string;           // What was said (audio/video only)
+
+  // Metadata - shared across types
+  summary: string;                  // 1-2 sentence summary
+  elements: string[];               // Key objects, text, people visible
+
+  // Type-specific fields
+  actions?: string[];               // Actions/events observed (video)
+  language?: string;                // Detected spoken language (audio/video with speech)
+
+  // Additional context
+  notes?: string;                   // Additional observations, quality notes, etc.
+}

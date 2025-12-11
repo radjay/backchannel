@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MediaContent from "./MediaContent";
 
 type MessageContent = {
@@ -48,7 +48,7 @@ const isMediaMessage = (content: MessageContent | null): boolean => {
   return ["m.image", "m.video", "m.audio", "m.file"].includes(content.msgtype);
 };
 
-function MessageBody({ content }: { content: MessageContent | null }) {
+function MessageBody({ content, eventId }: { content: MessageContent | null; eventId: string }) {
   if (!content) {
     return <div className="body">[no content]</div>;
   }
@@ -56,7 +56,7 @@ function MessageBody({ content }: { content: MessageContent | null }) {
   if (isMediaMessage(content)) {
     return (
       <div className="body">
-        <MediaContent content={content} />
+        <MediaContent content={content} eventId={eventId} />
         {content.body && content.msgtype !== "m.text" && content.body !== content.filename && (
           <div className="media-caption">{content.body}</div>
         )}
@@ -69,10 +69,18 @@ function MessageBody({ content }: { content: MessageContent | null }) {
 
 export default function MessagesList({ messages }: { messages: Message[] }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Prevent hydration mismatch by only rendering dates on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (isClient) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isClient]);
 
   const grouped = useMemo(() => {
     return messages.reduce<Record<string, Message[]>>((acc, msg) => {
@@ -90,12 +98,17 @@ export default function MessagesList({ messages }: { messages: Message[] }) {
     [grouped]
   );
 
+  // Show loading state on server to avoid hydration mismatch
+  if (!isClient) {
+    return <div className="messages"><div>Loading messages...</div></div>;
+  }
+
   return (
     <div className="messages">
       {messages.length === 0 && <div>No messages</div>}
       {dayKeys.map((day) => (
         <div key={day} className="day-group">
-          <div className="day-header" suppressHydrationWarning>{day}</div>
+          <div className="day-header">{day}</div>
           {grouped[day]
             .slice()
             .sort((a, b) => a.timestamp - b.timestamp)
@@ -103,9 +116,9 @@ export default function MessagesList({ messages }: { messages: Message[] }) {
               <div key={msg.event_id} className="message">
                 <div className="meta">
                   <span className="sender">{displaySender(msg)}</span>
-                  <span className="time" suppressHydrationWarning>{formatTime(msg.timestamp)}</span>
+                  <span className="time">{formatTime(msg.timestamp)}</span>
                 </div>
-                <MessageBody content={msg.content} />
+                <MessageBody content={msg.content} eventId={msg.event_id} />
               </div>
             ))}
         </div>

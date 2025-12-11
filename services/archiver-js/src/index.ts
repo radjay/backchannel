@@ -317,7 +317,6 @@ class Archiver {
     const withoutPrefix = mxcUrl.slice('mxc://'.length);
     const [server, mediaId] = withoutPrefix.split('/', 2);
     if (!server || !mediaId) return null;
-    if (mediaId.length > 100) return null; // skip very long direct_media IDs
     return { server, mediaId };
   }
 
