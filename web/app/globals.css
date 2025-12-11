@@ -247,4 +247,139 @@ h1 {
   font-size: 14px;
 }
 
+/* Media content styles */
+.media-image-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.media-image {
+  max-width: 300px;
+  max-height: 300px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  object-fit: contain;
+}
+
+.media-image:hover {
+  opacity: 0.9;
+}
+
+.media-image.expanded {
+  max-width: 100%;
+  max-height: 80vh;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: #0f172a;
+  padding: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8);
+}
+
+.media-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.media-video-container,
+.media-audio-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.media-video {
+  max-width: 400px;
+  max-height: 300px;
+  border-radius: 8px;
+  background: #000;
+}
+
+.media-audio {
+  width: 100%;
+  max-width: 300px;
+  height: 40px;
+}
+
+.media-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.media-file:hover {
+  background: #334155;
+  border-color: #475569;
+}
+
+.media-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.media-file-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.media-file-size {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.media-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #94a3b8;
+}
+
+.media-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px 8px;
+  background: #334155;
+  border-radius: 4px;
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.media-download:hover {
+  background: #475569;
+}
+
+.media-placeholder {
+  color: #64748b;
+  font-style: italic;
+}
+
+.media-caption {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
 

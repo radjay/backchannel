@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import MediaContent from "./MediaContent";
+
+type MessageContent = {
+  body?: string;
+  msgtype?: string;
+  url?: string;
+  filename?: string;
+  info?: {
+    mimetype?: string;
+    size?: number;
+    w?: number;
+    h?: number;
+    duration?: number;
+  };
+};
 
 type Message = {
   event_id: string;
@@ -9,7 +24,7 @@ type Message = {
   sender_display_name?: string | null;
   room_display_name?: string | null;
   timestamp: number;
-  content: { body?: string } | null;
+  content: MessageContent | null;
 };
 
 const formatTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -27,6 +42,30 @@ const displaySender = (msg: Message) => {
   }
   return sender;
 };
+
+const isMediaMessage = (content: MessageContent | null): boolean => {
+  if (!content?.msgtype) return false;
+  return ["m.image", "m.video", "m.audio", "m.file"].includes(content.msgtype);
+};
+
+function MessageBody({ content }: { content: MessageContent | null }) {
+  if (!content) {
+    return <div className="body">[no content]</div>;
+  }
+
+  if (isMediaMessage(content)) {
+    return (
+      <div className="body">
+        <MediaContent content={content} />
+        {content.body && content.msgtype !== "m.text" && content.body !== content.filename && (
+          <div className="media-caption">{content.body}</div>
+        )}
+      </div>
+    );
+  }
+
+  return <div className="body">{content.body ?? "[no body]"}</div>;
+}
 
 export default function MessagesList({ messages }: { messages: Message[] }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -66,7 +105,7 @@ export default function MessagesList({ messages }: { messages: Message[] }) {
                   <span className="sender">{displaySender(msg)}</span>
                   <span className="time" suppressHydrationWarning>{formatTime(msg.timestamp)}</span>
                 </div>
-                <div className="body">{msg.content?.body ?? "[no body]"}</div>
+                <MessageBody content={msg.content} />
               </div>
             ))}
         </div>
