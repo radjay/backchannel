@@ -2,6 +2,11 @@
 logs/
 data/
 
+# Node.js
+node_modules/
+.next/
+.turbo/
+
 # Environment variables
 .env
 .env.local

@@ -1,4 +1,11 @@
 #!/bin/bash
+# Status of Matrix Synapse
+
+/home/matrix-ai/scripts/load-env.sh
+
+STATUS=$(sudo systemctl is-active matrix-synapse 2>/dev/null || echo "unknown")
+echo "Synapse: $STATUS"
+#!/bin/bash
 # Check status of all Matrix services
 
 echo "📊 Matrix AI Server Status"

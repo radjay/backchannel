@@ -1,4 +1,20 @@
 #!/bin/bash
+# Stop Matrix Synapse
+
+set -e
+
+/home/matrix-ai/scripts/load-env.sh
+
+echo "🛑 Stopping Matrix Synapse..."
+sudo systemctl stop matrix-synapse || true
+
+if sudo systemctl is-active --quiet matrix-synapse; then
+  echo "❌ Synapse still running"
+  exit 1
+else
+  echo "✅ Synapse stopped"
+fi
+#!/bin/bash
 # Stop all Matrix services in reverse dependency order
 
 set -e

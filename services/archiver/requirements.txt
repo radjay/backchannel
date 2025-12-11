@@ -1,3 +1,0 @@
-# Simple Matrix archiver dependencies
-aiohttp==3.10.11
-pyyaml==6.0.1

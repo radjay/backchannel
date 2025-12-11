@@ -83,15 +83,48 @@ Internet → nginx (SSL) → Matrix Synapse → PostgreSQL
 ```
 services/
 ├── archiver/          # Message archiver to Supabase (Python)
+├── archiver-js/       # Message archiver to Supabase (Node/TS)
 ├── whatsapp-bridge/   # WhatsApp integration (Go binary)
 ├── matrix-synapse/    # Matrix server config
 └── ai/                # Future AI services
 
+web/                   # Next.js UI for orgs/rooms/messages
 scripts/               # Service management scripts
 logs/                  # Service logs - gitignored
 data/                  # Runtime data (media) - gitignored
 docs/                  # Documentation
 ```
+
+## Running the TypeScript archiver
+
+From `/home/matrix-ai/services/archiver-js`:
+
+1) Set environment variables (service role key is required):
+```
+export MATRIX_HOMESERVER_URL=http://localhost:8008
+export MATRIX_USER=@archiver:matrix.radx.dev
+export MATRIX_PASSWORD=your-password
+export SUPABASE_URL=https://your-supabase-url.supabase.co
+export SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+export ROOM_REFRESH_INTERVAL_SECONDS=300
+export SYNC_TIMEOUT_MS=30000
+```
+2) Install deps: `npm install`
+3) Build: `npm run build`
+4) Run: `npm run start`  (or `npm run dev` for ts-node)
+
+## Running the web UI (Next.js)
+
+From `/home/matrix-ai/web`:
+
+1) Set environment variables (server-side only):
+```
+export SUPABASE_URL=https://your-supabase-url.supabase.co
+export SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+2) Install deps: `npm install`
+3) Dev server: `npm run dev` (defaults to http://localhost:3000)
+4) Production: `npm run build && npm run start`
 
 ## Documentation
 
