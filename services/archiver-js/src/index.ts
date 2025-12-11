@@ -25,6 +25,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const ROOM_REFRESH_INTERVAL_SECONDS = Number(process.env.ROOM_REFRESH_INTERVAL_SECONDS ?? '300');
 const SYNC_TIMEOUT_MS = Number(process.env.SYNC_TIMEOUT_MS ?? '30000');
+const AI_ANALYSIS_ENABLED = process.env.AI_ANALYSIS_ENABLED !== 'false';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -118,7 +119,30 @@ class Archiver {
       console.warn(`Failed to resolve room alias for ${roomId}:`, err);
     }
 
-    return { room_name: roomName, room_display_name: displayName || roomId };
+    const finalDisplayName = displayName || roomId;
+    // Upsert room name if we have either roomName or displayName (canonical alias)
+    if (roomName) {
+      await this.upsertRoomName(roomId, roomName);
+    } else if (displayName && displayName !== roomId) {
+      // Use displayName (canonical alias) as fallback if roomName is empty
+      await this.upsertRoomName(roomId, displayName);
+    } else {
+      console.info(`No room name found for ${roomId} (roomName: "${roomName}", displayName: "${displayName}")`);
+    }
+
+    return { room_name: roomName, room_display_name: finalDisplayName };
+  }
+
+  private async upsertRoomName(roomId: string, roomName: string): Promise<void> {
+    if (!roomId || !roomName) return;
+    const { error } = await this.supabase
+      .from('monitored_rooms')
+      .upsert({ room_id: roomId, room_name: roomName }, { onConflict: 'room_id' });
+    if (error) {
+      console.warn('Failed to update room name', roomId, error);
+    } else {
+      console.info(`Updated room name for ${roomId}: "${roomName}"`);
+    }
   }
 
   private async resolveUserDisplayName(userId: string, roomId: string): Promise<string> {
@@ -251,6 +275,41 @@ class Archiver {
     }
 
     await this.saveMediaMetadata(event, storagePath, content);
+
+    // Enqueue AI analysis job for analyzable media types
+    if (AI_ANALYSIS_ENABLED && ['m.image', 'm.video', 'm.audio'].includes(msgtype ?? '')) {
+      await this.enqueueAnalysisJob(event, content);
+    }
+  }
+
+  private async enqueueAnalysisJob(event: MatrixMessageEvent, content: MatrixMessageEvent['content']): Promise<void> {
+    const msgtype = content?.msgtype ?? '';
+    const mediaTypeMap: Record<string, string> = {
+      'm.image': 'image',
+      'm.video': 'video',
+      'm.audio': 'audio',
+    };
+    const mediaType = mediaTypeMap[msgtype];
+    if (!mediaType) return;
+
+    const job = {
+      event_id: event.event_id,
+      room_id: event.room_id ?? '',
+      media_type: mediaType,
+      media_url: content?.url ?? '',
+      media_info: content?.info ?? null,
+      status: 'pending',
+    };
+
+    const { error } = await this.supabase
+      .from('analysis_jobs')
+      .upsert(job, { onConflict: 'event_id' });
+
+    if (error) {
+      console.error('Failed to enqueue analysis job', error);
+    } else {
+      console.info(`Enqueued ${mediaType} analysis job for ${event.event_id}`);
+    }
   }
 
   private parseMxcUrl(mxcUrl: string): { server: string; mediaId: string } | null {
