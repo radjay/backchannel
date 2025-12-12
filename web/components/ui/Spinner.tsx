@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { ReloadIcon } from "@radix-ui/react-icons";
 
 type SpinnerProps = {
   size?: number;
@@ -8,5 +8,6 @@ type SpinnerProps = {
 };
 
 export default function Spinner({ size = 32, className = "" }: SpinnerProps) {
-  return <Loader2 size={size} className={`spinner ${className}`} />;
+  const sizeClass = size >= 32 ? "w-8 h-8" : size >= 24 ? "w-6 h-6" : "w-4 h-4";
+  return <ReloadIcon className={`${sizeClass} spinner ${className}`} />;
 }

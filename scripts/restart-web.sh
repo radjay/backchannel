@@ -7,3 +7,6 @@ set -e
 
 /home/matrix-ai/scripts/stop-web.sh || true
 /home/matrix-ai/scripts/start-web.sh
+
+
+

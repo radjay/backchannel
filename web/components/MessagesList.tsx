@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { ChevronDownIcon } from "@radix-ui/react-icons";
 import MediaContent from "./MediaContent";
+import { EmptyState } from "./ui";
 
 type MessageContent = {
   body?: string;
@@ -68,19 +70,45 @@ function MessageBody({ content, eventId }: { content: MessageContent | null; eve
 }
 
 export default function MessagesList({ messages }: { messages: Message[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Prevent hydration mismatch by only rendering dates on client
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (isClient) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isClient && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isClient]);
+
+  // Track scroll position to show/hide scroll button
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    // Show button if more than 200px from bottom
+    setShowScrollButton(distanceFromBottom > 200);
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll, isClient]);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
   const grouped = useMemo(() => {
     return messages.reduce<Record<string, Message[]>>((acc, msg) => {
@@ -104,26 +132,38 @@ export default function MessagesList({ messages }: { messages: Message[] }) {
   }
 
   return (
-    <div className="messages">
-      {messages.length === 0 && <div>No messages</div>}
-      {dayKeys.map((day) => (
-        <div key={day} className="day-group">
-          <div className="day-header">{day}</div>
-          {grouped[day]
-            .slice()
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map((msg) => (
-              <div key={msg.event_id} className="message">
-                <div className="meta">
-                  <span className="sender">{displaySender(msg)}</span>
-                  <span className="time">{formatTime(msg.timestamp)}</span>
+    <div className="messages-container" ref={containerRef}>
+      <div className="messages">
+        {messages.length === 0 && <EmptyState message="No messages" />}
+        {dayKeys.map((day) => (
+          <div key={day} className="day-group">
+            <div className="day-header">{day}</div>
+            {grouped[day]
+              .slice()
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .map((msg) => (
+                <div key={msg.event_id} className="message">
+                  <div className="meta">
+                    <span className="sender">{displaySender(msg)}</span>
+                    <span className="time">{formatTime(msg.timestamp)}</span>
+                  </div>
+                  <MessageBody content={msg.content} eventId={msg.event_id} />
                 </div>
-                <MessageBody content={msg.content} eventId={msg.event_id} />
-              </div>
-            ))}
-        </div>
-      ))}
-      <div ref={bottomRef} />
+              ))}
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {showScrollButton && (
+        <button
+          className="scroll-to-bottom"
+          onClick={scrollToBottom}
+          aria-label="Scroll to bottom"
+        >
+          <ChevronDownIcon className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 }

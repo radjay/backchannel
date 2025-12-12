@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Info } from "lucide-react";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { Modal, Button } from "./ui";
 
 type RoomInfo = {
@@ -25,7 +25,7 @@ export default function RoomInfoModal({ roomInfo }: { roomInfo: RoomInfo | null 
         title="Room information"
         aria-label="Show room information"
       >
-        <Info size={16} />
+        <InfoCircledIcon className="w-4 h-4" />
       </Button>
 
       <Modal

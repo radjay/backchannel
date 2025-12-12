@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ImageIcon, Video, Music, FileIcon, Download, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { ImageIcon, VideoIcon, SpeakerLoudIcon, FileIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon, LightningBoltIcon } from "@radix-ui/react-icons";
 
 type MediaInfo = {
   url?: string;
@@ -80,9 +80,9 @@ function AnalysisPanel({ eventId, mediaType }: { eventId: string; mediaType: str
         onClick={fetchAnalysis}
         disabled={loading}
       >
-        <Sparkles size={14} />
+        <LightningBoltIcon className="w-3.5 h-3.5" />
         <span>{loading ? 'Loading...' : 'AI Analysis'}</span>
-        {fetched && (isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+        {fetched && (isOpen ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
       </button>
 
       {isOpen && fetched && (
@@ -165,10 +165,10 @@ export default function MediaContent({ content, eventId }: { content: MediaInfo;
     if (imageError) {
       return (
         <div className="media-error">
-          <ImageIcon size={24} />
+          <ImageIcon className="w-6 h-6" />
           <span>Image failed to load</span>
           <a href={mediaUrl} download={filename} className="media-download">
-            <Download size={14} /> Download
+            <DownloadIcon className="w-3.5 h-3.5" /> Download
           </a>
         </div>
       );
@@ -211,7 +211,7 @@ export default function MediaContent({ content, eventId }: { content: MediaInfo;
             Your browser does not support video playback.
           </video>
           <div className="media-info">
-            <Video size={14} />
+            <VideoIcon className="w-3.5 h-3.5" />
             {content.info?.w && content.info?.h && (
               <span>
                 {content.info.w}x{content.info.h}
@@ -238,7 +238,7 @@ export default function MediaContent({ content, eventId }: { content: MediaInfo;
             Your browser does not support audio playback.
           </audio>
           <div className="media-info">
-            <Music size={14} />
+            <SpeakerLoudIcon className="w-3.5 h-3.5" />
             {content.info?.duration && (
               <span>{formatDuration(content.info.duration)}</span>
             )}
@@ -254,12 +254,12 @@ export default function MediaContent({ content, eventId }: { content: MediaInfo;
   if (msgtype === "m.file") {
     return (
       <a href={mediaUrl} download={filename} className="media-file">
-        <FileIcon size={20} />
+        <FileIcon className="w-5 h-5" />
         <div className="media-file-info">
           <span className="media-file-name">{filename}</span>
           {fileSize && <span className="media-file-size">{fileSize}</span>}
         </div>
-        <Download size={16} />
+        <DownloadIcon className="w-4 h-4" />
       </a>
     );
   }
@@ -267,9 +267,9 @@ export default function MediaContent({ content, eventId }: { content: MediaInfo;
   // Unknown media type
   return (
     <a href={mediaUrl} download={filename} className="media-file">
-      <FileIcon size={20} />
+      <FileIcon className="w-5 h-5" />
       <span>{filename}</span>
-      <Download size={16} />
+      <DownloadIcon className="w-4 h-4" />
     </a>
   );
 }

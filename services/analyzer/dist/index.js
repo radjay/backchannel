@@ -256,19 +256,60 @@ class Analyzer {
         }
         return prompts.join('\n\n');
     }
+    parseJsonResponse(content) {
+        try {
+            // Try to extract JSON from the response (handle potential markdown code blocks)
+            let jsonStr = content.trim();
+            // Remove markdown code blocks if present
+            if (jsonStr.startsWith('```json')) {
+                jsonStr = jsonStr.slice(7);
+            }
+            else if (jsonStr.startsWith('```')) {
+                jsonStr = jsonStr.slice(3);
+            }
+            if (jsonStr.endsWith('```')) {
+                jsonStr = jsonStr.slice(0, -3);
+            }
+            jsonStr = jsonStr.trim();
+            return JSON.parse(jsonStr);
+        }
+        catch (err) {
+            console.warn('Failed to parse JSON response, storing as raw text:', err);
+            return null;
+        }
+    }
     async storeResult(job, result, providerName) {
         const analysisType = job.media_type === 'audio' ? 'transcription' : 'description';
-        const { error } = await this.supabase.from('media_analysis').upsert({
+        // Try to parse as JSON
+        const parsed = this.parseJsonResponse(result.content);
+        // Determine the primary content field
+        // For audio: transcription is primary, for image/video: description is primary
+        const primaryContent = parsed
+            ? (job.media_type === 'audio' ? parsed.transcription : parsed.description) ?? parsed.description
+            : result.content;
+        const record = {
             message_id: job.message_id,
             event_id: job.event_id,
             media_type: job.media_type,
             analysis_type: analysisType,
-            content: result.content,
+            content: primaryContent,
             provider: providerName,
             model_used: result.modelUsed,
             tokens_used: result.tokensUsed,
             processing_time_ms: result.processingTimeMs,
-        }, { onConflict: 'event_id,analysis_type' });
+        };
+        // Add structured fields if JSON was parsed successfully
+        if (parsed) {
+            record.description = parsed.description;
+            record.transcription = parsed.transcription ?? null;
+            record.summary = parsed.summary;
+            record.elements = parsed.elements ?? [];
+            record.actions = parsed.actions ?? null;
+            record.language = parsed.language ?? null;
+            record.notes = parsed.notes ?? null;
+            record.raw_response = parsed;
+        }
+        const { error } = await this.supabase.from('media_analysis').upsert(record, { onConflict: 'event_id,analysis_type' });
         if (error) {
             console.error('Failed to store analysis result:', error);
             throw error;
@@ -279,20 +320,25 @@ class Analyzer {
         console.error(`Job ${job.id} failed:`, errorMessage);
         const newAttempts = job.attempts + 1;
         const newStatus = newAttempts >= config_js_1.config.maxRetries ? 'failed' : 'pending';
+        // Calculate exponential backoff: base * 2^(attempt-1)
+        // e.g., 5s, 10s, 20s, 40s, 80s for attempts 1-5
+        const backoffMs = config_js_1.config.retryBackoffBaseMs * Math.pow(2, newAttempts - 1);
+        const retryAfter = new Date(Date.now() + backoffMs).toISOString();
         await this.supabase
             .from('analysis_jobs')
             .update({
             status: newStatus,
             attempts: newAttempts,
             last_error: errorMessage,
-            started_at: null, // Reset for retry
+            started_at: null,
+            retry_after: newStatus === 'pending' ? retryAfter : null,
         })
             .eq('id', job.id);
         if (newStatus === 'failed') {
             console.warn(`Job ${job.id} permanently failed after ${newAttempts} attempts`);
         }
         else {
-            console.info(`Job ${job.id} will retry (attempt ${newAttempts}/${config_js_1.config.maxRetries})`);
+            console.info(`Job ${job.id} will retry in ${backoffMs / 1000}s (attempt ${newAttempts}/${config_js_1.config.maxRetries})`);
         }
     }
     guessMimeType(mediaType) {

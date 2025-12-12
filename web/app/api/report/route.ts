@@ -80,12 +80,74 @@ function formatMessagesForLLM(messages: Message[]): string {
     .join('\n');
 }
 
+type Period = 'today' | 'yesterday' | '7days' | '30days' | 'year';
+
+function getTimestampRange(period: Period): { start: number; end: number } {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  switch (period) {
+    case 'today':
+      return { start: todayStart.getTime(), end: todayEnd.getTime() };
+    case 'yesterday': {
+      const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+      return { start: yesterdayStart.getTime(), end: todayStart.getTime() };
+    }
+    case '7days': {
+      const weekAgo = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return { start: weekAgo.getTime(), end: now.getTime() };
+    }
+    case '30days': {
+      const monthAgo = new Date(todayStart.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return { start: monthAgo.getTime(), end: now.getTime() };
+    }
+    case 'year': {
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      return { start: yearStart.getTime(), end: now.getTime() };
+    }
+    default:
+      // Default to last 7 days
+      const defaultStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return { start: defaultStart.getTime(), end: now.getTime() };
+  }
+}
+
+function getPeriodLabel(period: Period): string {
+  switch (period) {
+    case 'today': return 'today';
+    case 'yesterday': return 'yesterday';
+    case '7days': return 'the last 7 days';
+    case '30days': return 'the last 30 days';
+    case 'year': return 'this year';
+    default: return 'the selected period';
+  }
+}
+
+type Language = 'en' | 'nl' | 'es' | 'fr';
+
+function getLanguageName(language: Language): string {
+  switch (language) {
+    case 'en': return 'English';
+    case 'nl': return 'Dutch';
+    case 'es': return 'Spanish';
+    case 'fr': return 'French';
+    default: return 'English';
+  }
+}
+
 export async function GET(request: NextRequest) {
   const roomId = request.nextUrl.searchParams.get('room_id');
+  const period = (request.nextUrl.searchParams.get('period') || '7days') as Period;
+  const language = (request.nextUrl.searchParams.get('language') || 'en') as Language;
 
   if (!roomId) {
     return NextResponse.json({ error: 'Missing room_id parameter' }, { status: 400 });
   }
+
+  const { start: startTimestamp, end: endTimestamp } = getTimestampRange(period);
+
+  console.log(`[Report API] Period: ${period}, Start: ${new Date(startTimestamp).toISOString()}, End: ${new Date(endTimestamp).toISOString()}`);
 
   try {
     // 1. Fetch system prompt
@@ -106,21 +168,30 @@ export async function GET(request: NextRequest) {
       .eq('is_active', true)
       .single();
 
-    // 3. Fetch messages for the room
+    // 3. Fetch messages for the room within the time range
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
       .select('event_id,sender,sender_display_name,timestamp,content')
       .eq('room_id', roomId)
+      .gte('timestamp', startTimestamp)
+      .lte('timestamp', endTimestamp)
       .order('timestamp', { ascending: true })
-      .limit(100);
+      .limit(500);
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError);
       return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
+    console.log(`[Report API] Found ${messages?.length || 0} messages in date range`);
+    if (messages && messages.length > 0) {
+      const firstTs = messages[0].timestamp;
+      const lastTs = messages[messages.length - 1].timestamp;
+      console.log(`[Report API] Message range: ${new Date(firstTs).toISOString()} to ${new Date(lastTs).toISOString()}`);
+    }
+
     if (!messages || messages.length === 0) {
-      return NextResponse.json({ report: 'No messages found in this room.' });
+      return NextResponse.json({ report: `No messages found for ${getPeriodLabel(period)}.` });
     }
 
     // 4. Build the prompt
@@ -139,8 +210,14 @@ export async function GET(request: NextRequest) {
       promptParts.push(`\nAdditional context for this room:\n${roomPrompt.prompt_content}`);
     }
 
+    // Add language instruction
+    if (language !== 'en') {
+      promptParts.push(`\nIMPORTANT: Write the entire report in ${getLanguageName(language)}. All headings, content, and analysis must be in ${getLanguageName(language)}.`);
+    }
+
     const formattedMessages = formatMessagesForLLM(messages as Message[]);
-    promptParts.push(`\n\n--- CONVERSATION (${messages.length} messages) ---\n\n${formattedMessages}`);
+    const periodContext = `Report period: ${getPeriodLabel(period)}`;
+    promptParts.push(`\n\n--- CONVERSATION (${messages.length} messages from ${periodContext}) ---\n\n${formattedMessages}`);
 
     const fullPrompt = promptParts.join('\n');
 
@@ -180,7 +257,12 @@ export async function GET(request: NextRequest) {
       status: 'success',
     });
 
-    return NextResponse.json({ report });
+    return NextResponse.json({
+      report,
+      messagesUsed: messages,
+      messageCount: messages.length,
+      period: getPeriodLabel(period),
+    });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error generating report:', err);

@@ -46,3 +46,16 @@ export interface ComposedPrompt {
     mediaType: string;
     organization?: string;
 }
+/**
+ * Structured JSON response from AI analysis
+ * Shared structure across all media types
+ */
+export interface MediaAnalysisResponse {
+    description: string;
+    transcription?: string;
+    summary: string;
+    elements: string[];
+    actions?: string[];
+    language?: string;
+    notes?: string;
+}

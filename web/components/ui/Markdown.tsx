@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type MarkdownProps = {
   content: string;
@@ -10,7 +11,7 @@ type MarkdownProps = {
 export default function Markdown({ content, className = "" }: MarkdownProps) {
   return (
     <div className={`report-content ${className}`}>
-      <ReactMarkdown>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   );
 }

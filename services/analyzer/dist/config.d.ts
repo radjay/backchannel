@@ -8,6 +8,7 @@ export declare const config: {
     pollIntervalMs: number;
     maxConcurrentJobs: number;
     maxRetries: number;
+    retryBackoffBaseMs: number;
     providers: Record<MediaType, ProviderName>;
     gemini: {
         apiKey: string;

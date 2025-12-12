@@ -12,7 +12,8 @@ exports.config = {
     // Polling settings
     pollIntervalMs: Number(process.env.POLL_INTERVAL_MS ?? '5000'),
     maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS ?? '1'),
-    maxRetries: Number(process.env.MAX_RETRIES ?? '3'),
+    maxRetries: Number(process.env.MAX_RETRIES ?? '5'),
+    retryBackoffBaseMs: Number(process.env.RETRY_BACKOFF_BASE_MS ?? '5000'), // Base backoff: 5s, 10s, 20s, 40s, 80s
     // Provider selection (per media type)
     providers: {
         image: (process.env.IMAGE_PROVIDER ?? 'gemini'),
