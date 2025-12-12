@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: matrixai-web
+    runtime: node
+    plan: starter
+    region: frankfurt
+    rootDir: web
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: LOG_PATH
+        value: /tmp/logs
+    buildFilter:
+      paths:
+        - web/**
+    healthCheckPath: /
