@@ -36,6 +36,7 @@
     "logs:bridge": "tail -f logs/bridge.log",
     "logs:synapse": "journalctl -f -u matrix-synapse",
     "logs:archiver": "tail -f logs/archiver.log",
+    "logs:llm": "tail -f logs/llm.log",
     "versions": "echo \"Synapse: $(/opt/matrix/synapse-venv/bin/python -c 'import synapse; print(synapse.__version__)')\" && echo \"Element: $(cat /var/www/element/version)\" && echo \"WhatsApp: $(./services/whatsapp-bridge/bin/mautrix-whatsapp --version 2>&1 | head -1)\""
   },
   "keywords": [

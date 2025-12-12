@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import MessagesList from '../components/MessagesList';
 import RoomInfoModal from '../components/RoomInfoModal';
+import AiReportModal from '../components/AiReportModal';
 
 type Organization = { id: number; name: string };
 type Room = { room_id: string; room_name?: string | null; organization_id?: number | null };
@@ -89,15 +90,18 @@ export default async function Page({ searchParams }: { searchParams?: { org?: st
           <div className="messages-header">
             <h3>Messages</h3>
             {selectedRoomId && (
-              <RoomInfoModal
-                roomInfo={{
-                  room_id: selectedRoomId,
-                  room_name: rooms.find((r) => r.room_id === selectedRoomId)?.room_name ?? null,
-                  room_display_name: messages[0]?.room_display_name ?? null,
-                  message_count: messages.length,
-                  latest_message: messages.length > 0 ? messages[messages.length - 1]?.event_id : null,
-                }}
-              />
+              <div className="header-buttons">
+                <AiReportModal roomId={selectedRoomId} />
+                <RoomInfoModal
+                  roomInfo={{
+                    room_id: selectedRoomId,
+                    room_name: rooms.find((r) => r.room_id === selectedRoomId)?.room_name ?? null,
+                    room_display_name: messages[0]?.room_display_name ?? null,
+                    message_count: messages.length,
+                    latest_message: messages.length > 0 ? messages[messages.length - 1]?.event_id : null,
+                  }}
+                />
+              </div>
             )}
           </div>
           <div className="messages-wrapper">
