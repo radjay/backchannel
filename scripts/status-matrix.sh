@@ -34,8 +34,8 @@ fi
 
 # Check Archiver
 echo
-echo "📚 Matrix Archiver:"
-ARCHIVER_PID=$(pgrep -f unified_archiver.py 2>/dev/null || echo "")
+echo "📚 Message Archiver:"
+ARCHIVER_PID=$(pgrep -f "archiver-db/dist/index.js" 2>/dev/null | head -1 || echo "")
 if [ -n "$ARCHIVER_PID" ]; then
     echo "   Status: ✅ Running (PID: $ARCHIVER_PID)"
     echo "   Memory: $(ps -p $ARCHIVER_PID -o rss= | awk '{print $1/1024 " MB"}')"
@@ -62,5 +62,5 @@ echo
 echo "📁 Quick Log Commands:"
 echo "   Synapse: journalctl -u matrix-synapse -f"
 echo "   Bridge: tail -f /home/matrix-ai/logs/bridge.log"
-echo "   Archiver: tail -f /home/matrix-ai/logs/archiver.log"
+echo "   Archiver: tail -f /home/matrix-ai/logs/archiver-db.log"
 echo

@@ -5,6 +5,6 @@
 
 /home/matrix-ai/scripts/status-matrix.sh
 /home/matrix-ai/scripts/status-bridge.sh
-/home/matrix-ai/scripts/status-archiver.sh
+/home/matrix-ai/scripts/status-archiver-db.sh
 /home/matrix-ai/scripts/status-analyzer.sh
 /home/matrix-ai/scripts/status-web.sh
