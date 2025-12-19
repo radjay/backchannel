@@ -4,6 +4,7 @@ data/
 
 # Node.js
 node_modules/
+dist/
 .next/
 .turbo/
 
@@ -21,6 +22,9 @@ node_modules/
 *.db
 *.sqlite
 *.sqlite3
+
+# State files
+state.json
 
 # IDE files
 .vscode/
@@ -57,3 +61,6 @@ tests/tmp/
 # Backup files
 *.bak
 *.backup
+
+# TypeScript build info
+*.tsbuildinfo
